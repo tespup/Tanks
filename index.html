@@ -2,8 +2,8 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <!-- Блокируем масштабирование и скроллинг на мобильных устройствах -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Блокируем масштабирование, скроллинг и учитываем безопасные зоны (челку) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>ТАНКИ 8-БИТ · TELEGRAM EDITION</title>
     <!-- Подключаем API Telegram Mini Apps -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -14,7 +14,14 @@
             touch-action: none; /* Отключаем системные жесты (свайпы, зум) */
             user-select: none; -webkit-user-select: none; 
         }
-        html, body { height: 100%; width: 100%; background: #000; overflow: hidden; }
+        html, body { 
+            height: 100vh; 
+            /* Используем стабильную высоту от Telegram, если она доступна */
+            height: var(--tg-viewport-stable-height, 100vh); 
+            width: 100%; 
+            background: #000; 
+            overflow: hidden; 
+        }
         body {
             background: radial-gradient(circle at 50% 30%, #1b2140 0%, #0a0c18 70%);
             display: flex; flex-direction: row; align-items: center; justify-content: space-between;
@@ -30,7 +37,7 @@
         
         /* Контейнер игры по центру */
         #wrap { 
-            position: relative; height: 100vh; 
+            position: relative; height: 100%; 
             display: flex; flex-direction: column; justify-content: center; align-items: center; 
             flex: 1; 
         }
@@ -38,7 +45,7 @@
             display: block; background: #000; border: 4px solid #3a3f5c; border-radius: 6px;
             box-shadow: 0 0 40px rgba(80,120,255,.25), inset 0 0 20px rgba(0,0,0,.6);
             image-rendering: pixelated; 
-            max-height: 96vh; max-width: 100%; object-fit: contain; /* Авто-масштабирование */
+            max-height: 96%; max-width: 100%; object-fit: contain; /* Авто-масштабирование */
         }
         #hint { display: none; } /* Скрываем текстовую подсказку на мобилках */
 

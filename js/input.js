@@ -69,6 +69,10 @@ function bindName(b) {
     if (!b) return '—';
     const p = String(b).split(':');
     if (p[0] === 'K') return keyName(p[1]);
+    if (p[0] === 'V') {
+        const names = {UP:'ЭКРАН ВВЕРХ', DOWN:'ЭКРАН ВНИЗ', LEFT:'ЭКРАН ВЛЕВО', RIGHT:'ЭКРАН ВПРАВО', FIRE:'ЭКРАН КН 1', DIG:'ЭКРАН КН 2', MINE:'ЭКРАН КН 3', TELE:'ЭКРАН КН 4'};
+        return names[p[1]] || ('ЭКРАН ' + p[1]);
+    }
     if (p[0] === 'P') {
         const g = 'ГЕЙМПАД' + ((parseInt(p[1], 10) || 0) + 1);
         if (p[2] === 'B') return g + ' КН' + p[3];
@@ -82,58 +86,86 @@ const justPressed = {};
 const pads = [];
 
 // Состояние виртуального джойстика (наэкранные кнопки)
-const vInput = { up: false, down: false, left: false, right: false, fire: false, dig: false, mine: false, tele: false };
+const vInputState = { UP: false, DOWN: false, LEFT: false, RIGHT: false, FIRE: false, DIG: false, MINE: false, TELE: false };
+const vInputJustPressed = { UP: false, DOWN: false, LEFT: false, RIGHT: false, FIRE: false, DIG: false, MINE: false, TELE: false };
 
-// Инициализация сенсорных кнопок
+function setVInput(key, val) {
+    if (val && !vInputState[key]) vInputJustPressed[key] = true;
+    vInputState[key] = val;
+}
+
+// Инициализация сенсорных кнопок с поддержкой скольжения (свайпов)
 window.addEventListener('DOMContentLoaded', () => {
     const dpad = document.getElementById('dpad-container');
     const actBtns = document.querySelectorAll('.act-btn');
-    
-    const resetDpad = () => {
-        vInput.up = vInput.down = vInput.left = vInput.right = false;
-        document.querySelectorAll('.dpad-btn').forEach(el => el.classList.remove('active'));
-    };
 
     if (dpad) {
         const handleDpad = (e) => {
             e.preventDefault();
-            resetDpad();
-            // Поддержка скольжения пальцем по крестовине
+            const rect = dpad.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            
+            let up = false, down = false, left = false, right = false;
+            
             for (let i = 0; i < e.touches.length; i++) {
-                const touch = e.touches[i];
-                const el = document.elementFromPoint(touch.clientX, touch.clientY);
-                if (el && el.classList.contains('dpad-btn')) {
-                    const key = el.getAttribute('data-key');
-                    if (key) {
-                        vInput[key] = true;
-                        el.classList.add('active');
+                const t = e.touches[i];
+                // Проверяем, находится ли палец в зоне крестовины (с небольшим запасом)
+                if (t.clientX >= rect.left - 30 && t.clientX <= rect.right + 30 &&
+                    t.clientY >= rect.top - 30 && t.clientY <= rect.bottom + 30) {
+                    
+                    const dx = t.clientX - cx;
+                    const dy = t.clientY - cy;
+                    const dist = Math.hypot(dx, dy);
+                    
+                    if (dist > 15) { // Мертвая зона в центре
+                        const angle = Math.atan2(dy, dx);
+                        // Определяем направление по углу (8 направлений)
+                        if (angle > -Math.PI/8 && angle <= Math.PI/8) right = true;
+                        else if (angle > Math.PI/8 && angle <= 3*Math.PI/8) { right = true; down = true; }
+                        else if (angle > 3*Math.PI/8 && angle <= 5*Math.PI/8) down = true;
+                        else if (angle > 5*Math.PI/8 && angle <= 7*Math.PI/8) { left = true; down = true; }
+                        else if (angle > 7*Math.PI/8 || angle <= -7*Math.PI/8) left = true;
+                        else if (angle > -7*Math.PI/8 && angle <= -5*Math.PI/8) { left = true; up = true; }
+                        else if (angle > -5*Math.PI/8 && angle <= -3*Math.PI/8) up = true;
+                        else if (angle > -3*Math.PI/8 && angle <= -Math.PI/8) { right = true; up = true; }
                     }
                 }
             }
+            
+            setVInput('UP', up);
+            setVInput('DOWN', down);
+            setVInput('LEFT', left);
+            setVInput('RIGHT', right);
+            
+            document.querySelector('.dpad-up').classList.toggle('active', up);
+            document.querySelector('.dpad-down').classList.toggle('active', down);
+            document.querySelector('.dpad-left').classList.toggle('active', left);
+            document.querySelector('.dpad-right').classList.toggle('active', right);
         };
+        
         dpad.addEventListener('touchstart', handleDpad, {passive: false});
         dpad.addEventListener('touchmove', handleDpad, {passive: false});
-        dpad.addEventListener('touchend', resetDpad, {passive: false});
-        dpad.addEventListener('touchcancel', resetDpad, {passive: false});
+        dpad.addEventListener('touchend', handleDpad, {passive: false});
+        dpad.addEventListener('touchcancel', handleDpad, {passive: false});
     }
 
+    const keyMap = { fire: 'FIRE', dig: 'DIG', mine: 'MINE', tele: 'TELE' };
     actBtns.forEach(btn => {
-        btn.addEventListener('touchstart', e => {
+        const key = keyMap[btn.getAttribute('data-key')];
+        const press = e => {
             e.preventDefault();
-            const key = btn.getAttribute('data-key');
-            if (key) vInput[key] = true;
+            if (key) setVInput(key, true);
             btn.classList.add('active');
-        }, {passive: false});
-        
-        const releaseBtn = e => {
+        };
+        const release = e => {
             e.preventDefault();
-            const key = btn.getAttribute('data-key');
-            if (key) vInput[key] = false;
+            if (key) setVInput(key, false);
             btn.classList.remove('active');
         };
-        
-        btn.addEventListener('touchend', releaseBtn, {passive: false});
-        btn.addEventListener('touchcancel', releaseBtn, {passive: false});
+        btn.addEventListener('touchstart', press, {passive: false});
+        btn.addEventListener('touchend', release, {passive: false});
+        btn.addEventListener('touchcancel', release, {passive: false});
     });
 });
 
@@ -163,6 +195,7 @@ function bindingHeld(b) {
     if (!b) return false;
     const p = String(b).split(':');
     if (p[0] === 'K') return !!keys[p[1]];
+    if (p[0] === 'V') return !!vInputState[p[1]];
     if (p[0] === 'P') {
         const gp = pads[parseInt(p[1], 10)];
         if (!gp) return false;
@@ -187,22 +220,29 @@ const Input = {
         for (let pi = 0; pi < 2; pi++) {
             const b = BINDS[pi] || DEFAULT_BINDS[pi], s = this.st[pi];
             let d = -1;
-            // Добавляем проверку виртуального джойстика (vInput) для Игрока 1 (pi === 0)
-            if (bindingHeld(b.up) || (pi === 0 && vInput.up)) d = 0;
-            else if (bindingHeld(b.right) || (pi === 0 && vInput.right)) d = 1;
-            else if (bindingHeld(b.down) || (pi === 0 && vInput.down)) d = 2;
-            else if (bindingHeld(b.left) || (pi === 0 && vInput.left)) d = 3;
+            
+            // Если бинд совпадает с дефолтным (клавиатура), мы также разрешаем использовать виртуальные кнопки для Игрока 1.
+            // Если игрок переназначил кнопку на что-то другое, виртуальная кнопка будет работать только если он назначил именно её.
+            const up = bindingHeld(b.up) || (pi === 0 && vInputState.UP && b.up === DEFAULT_BINDS[0].up);
+            const down = bindingHeld(b.down) || (pi === 0 && vInputState.DOWN && b.down === DEFAULT_BINDS[0].down);
+            const left = bindingHeld(b.left) || (pi === 0 && vInputState.LEFT && b.left === DEFAULT_BINDS[0].left);
+            const right = bindingHeld(b.right) || (pi === 0 && vInputState.RIGHT && b.right === DEFAULT_BINDS[0].right);
+            
+            if (up) d = 0;
+            else if (right) d = 1;
+            else if (down) d = 2;
+            else if (left) d = 3;
             s.dir = d;
             
-            s.fire = bindingHeld(b.fire) || (pi === 0 && vInput.fire);
+            s.fire = bindingHeld(b.fire) || (pi === 0 && vInputState.FIRE && b.fire === DEFAULT_BINDS[0].fire);
             
-            const dg = bindingHeld(b.dig) || (pi === 0 && vInput.dig);
+            const dg = bindingHeld(b.dig) || (pi === 0 && vInputState.DIG && b.dig === DEFAULT_BINDS[0].dig);
             s.dig = dg; s.digEdge = dg && !s.digPrev; s.digPrev = dg;
             
-            const mn = bindingHeld(b.mine) || (pi === 0 && vInput.mine);
+            const mn = bindingHeld(b.mine) || (pi === 0 && vInputState.MINE && b.mine === DEFAULT_BINDS[0].mine);
             s.mine = mn; s.mineEdge = mn && !s.minePrev; s.minePrev = mn;
             
-            const tp = bindingHeld(b.tele) || (pi === 0 && vInput.tele);
+            const tp = bindingHeld(b.tele) || (pi === 0 && vInputState.TELE && b.tele === DEFAULT_BINDS[0].tele);
             s.tele = tp; s.teleEdge = tp && !s.telePrev; s.telePrev = tp;
         }
     },
@@ -211,10 +251,21 @@ const Input = {
             const s = this.st[pi];
             s.dir = -1; s.fire = false; s.digEdge = false; s.mineEdge = false; s.teleEdge = false;
         }
+    },
+    clearJustPressed() {
+        for (const k in vInputJustPressed) vInputJustPressed[k] = false;
     }
 };
 
 function scanPadInput() {
+    // Сначала проверяем виртуальные кнопки
+    for (const k in vInputJustPressed) {
+        if (vInputJustPressed[k]) {
+            vInputJustPressed[k] = false;
+            return 'V:' + k;
+        }
+    }
+    // Затем физические геймпады
     for (let i = 0; i < pads.length; i++) {
         const gp = pads[i];
         if (!gp) continue;
@@ -229,6 +280,9 @@ function scanPadInput() {
 }
 
 function padNeutral() {
+    // Проверяем, что виртуальные кнопки отпущены
+    for (const k in vInputState) if (vInputState[k]) return false;
+    // Проверяем физические геймпады
     for (let i = 0; i < pads.length; i++) {
         const gp = pads[i];
         if (!gp) continue;

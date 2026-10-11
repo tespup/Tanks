@@ -3,12 +3,15 @@
 // Инициализация Telegram Web App API
 const tg = window.Telegram ? window.Telegram.WebApp : null;
 if (tg) {
-    tg.expand();
+    try { tg.expand(); } catch(e) {}
+    try { tg.disableVerticalSwipes(); } catch(e) {} // Запрещаем закрытие свайпом вниз
 }
 
 function requestFS() {
     if (!tg) return;
-    if (tg.requestFullscreen && !tg.isFullscreen) {
+    try { tg.expand(); } catch(e) {}
+    // Используем новый метод requestFullscreen из Bot API 8.0+
+    if (tg.requestFullscreen) {
         try { tg.requestFullscreen(); } catch (e) {}
     }
     if (tg.lockOrientation) {
@@ -17,7 +20,6 @@ function requestFS() {
 }
 
 // Fullscreen запрашивается один раз по первому user gesture (тап/клик).
-// При загрузке страницы это делать нельзя — Telegram молча игнорирует.
 const onceFS = () => {
     requestFS();
     document.removeEventListener('touchstart', onceFS);
@@ -191,6 +193,7 @@ function loop(now) {
     }
     
     for (const k in justPressed) delete justPressed[k];
+    if (Input.clearJustPressed) Input.clearJustPressed();
 }
 
 // Запуск цикла
