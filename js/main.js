@@ -3,16 +3,33 @@
 // Инициализация Telegram Web App API
 const tg = window.Telegram ? window.Telegram.WebApp : null;
 if (tg) {
-    tg.expand(); // Разворачиваем на весь экран
-    try {
-        if (tg.requestFullscreen) tg.requestFullscreen(); // Запрос полного экрана (TG 8.0+)
-        if (tg.lockOrientation) tg.lockOrientation('landscape'); // Блокировка в горизонте (TG 8.0+)
-    } catch (e) { console.warn("TG API Fullscreen/Orientation error:", e); }
+    tg.expand();
 }
+
+function requestFS() {
+    if (!tg) return;
+    if (tg.requestFullscreen && !tg.isFullscreen) {
+        try { tg.requestFullscreen(); } catch (e) {}
+    }
+    if (tg.lockOrientation) {
+        try { tg.lockOrientation('landscape'); } catch (e) {}
+    }
+}
+
+// Fullscreen запрашивается один раз по первому user gesture (тап/клик).
+// При загрузке страницы это делать нельзя — Telegram молча игнорирует.
+const onceFS = () => {
+    requestFS();
+    document.removeEventListener('touchstart', onceFS);
+    document.removeEventListener('click', onceFS);
+};
+document.addEventListener('touchstart', onceFS, { once: true, passive: true });
+document.addEventListener('click', onceFS, { once: true });
 
 function pressStart() {
     Sound.init(); 
     Sound.resume();
+    requestFS();
     if (UI.active) return;
     if (game.state === 'gameover' || game.state === 'victory') game.toMainMenu();
 }
