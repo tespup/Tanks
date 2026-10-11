@@ -5,6 +5,13 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
 if (tg) {
     tg.ready();
     try { tg.expand(); } catch(e) {}
+    
+    try {
+        if (tg && tg.isVersionAtLeast && tg.isVersionAtLeast('8.0') && tg.requestFullscreen && !tg.isFullscreen) {
+            tg.requestFullscreen();
+        }
+    } catch(e) {}
+
     try { if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch(e) {}
     // Танки — ландшафтная игра, лочим сразу при загрузке, не дожидаясь тапа
     try { if (tg.lockOrientation) tg.lockOrientation('landscape'); } catch(e) {}
@@ -14,7 +21,6 @@ function requestFS() {
     if (!tg) return;
     try { tg.expand(); } catch(e) {}
     
-    // Используем безопасный вызов Fullscreen
     if (tg.isVersionAtLeast && tg.isVersionAtLeast('8.0') && tg.requestFullscreen) {
         if (!tg.isFullscreen) {
             try { tg.requestFullscreen(); } catch (e) {}
