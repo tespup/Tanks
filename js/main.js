@@ -3,17 +3,22 @@
 // Инициализация Telegram Web App API
 const tg = window.Telegram ? window.Telegram.WebApp : null;
 if (tg) {
+    tg.ready();
     try { tg.expand(); } catch(e) {}
-    try { tg.disableVerticalSwipes(); } catch(e) {} // Запрещаем закрытие свайпом вниз
+    try { if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch(e) {}
 }
 
 function requestFS() {
     if (!tg) return;
     try { tg.expand(); } catch(e) {}
-    // Используем новый метод requestFullscreen из Bot API 8.0+
-    if (tg.requestFullscreen) {
-        try { tg.requestFullscreen(); } catch (e) {}
+    
+    // Используем безопасный вызов Fullscreen из твоего примера
+    if (tg.isVersionAtLeast && tg.isVersionAtLeast('8.0') && tg.requestFullscreen) {
+        if (!tg.isFullscreen) {
+            try { tg.requestFullscreen(); } catch (e) {}
+        }
     }
+    
     if (tg.lockOrientation) {
         try { tg.lockOrientation('landscape'); } catch (e) {}
     }

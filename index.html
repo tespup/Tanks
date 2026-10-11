@@ -15,7 +15,6 @@
             user-select: none; -webkit-user-select: none; 
         }
         html, body { 
-            height: 100vh; 
             /* Используем стабильную высоту от Telegram, если она доступна */
             height: var(--tg-viewport-stable-height, 100vh); 
             width: 100%; 
@@ -57,7 +56,7 @@
         }
         .dpad-btn.active { background: rgba(255,255,255,0.6); }
         .dpad-up { top: 0; left: 45px; width: 50px; height: 50px; border-bottom: none; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
-        .dpad-down { bottom: 0; left: 45px; width: 50px; height: 50px; border-top: none; border-top-left-radius: 0; border-top-right-radius: 0; }
+        .dpad-down { bottom: 0; left: 45px; width: 50px; height: 50px; border-top: none; border-top-left-radius: 0; border-bottom-left-radius: 0; }
         .dpad-left { top: 45px; left: 0; width: 50px; height: 50px; border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; }
         .dpad-right { top: 45px; right: 0; width: 50px; height: 50px; border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; }
         .dpad-center { 
