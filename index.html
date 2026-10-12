@@ -5,8 +5,8 @@
     <!-- Блокируем масштабирование, скроллинг и учитываем безопасные зоны (челку) -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>ТАНКИ 8-БИТ · TELEGRAM EDITION</title>
-    <!-- Подключаем API Telegram Mini Apps -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Подключаем API Telegram Mini Apps (локальная копия) -->
+    <script src="./telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/press-start-2p@5.0.20/400.css">
     <style>
         * { 
@@ -56,7 +56,7 @@
         }
         .dpad-btn.active { background: rgba(255,255,255,0.6); }
         .dpad-up { top: 0; left: 45px; width: 50px; height: 50px; border-bottom: none; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
-        .dpad-down { bottom: 0; left: 45px; width: 50px; height: 50px; border-top: none; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+        .dpad-down { bottom: 0; left: 45px; width: 50px; height: 50px; border-top: none; border-top-left-radius: 0; border-top-right-radius: 0; }
         .dpad-left { top: 45px; left: 0; width: 50px; height: 50px; border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; }
         .dpad-right { top: 45px; right: 0; width: 50px; height: 50px; border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; }
         .dpad-center { 
@@ -125,5 +125,18 @@
     <script src="js/menu.js"></script>
     <script src="js/render.js"></script>
     <script src="js/main.js"></script>
+
+    <!-- Инициализация Telegram Mini App -->
+    <script>
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+            tg.ready();
+            tg.expand();
+            try { tg.disableVerticalSwipes(); } catch (e) {}
+            if (typeof tg.requestFullscreen === 'function' && !tg.isFullscreen) {
+                try { tg.requestFullscreen(); } catch (e) {}
+            }
+        }
+    </script>
 </body>
 </html>
