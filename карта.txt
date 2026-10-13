@@ -1,0 +1,995 @@
+ПОЛНАЯ КАРТА ПРОЕКТА «ТАНКИ 8-БИТ»
+1. СТРУКТУРА
+text
+/
+├── index.html
+└── js/
+    ├── config.js
+    ├── utils.js
+    ├── audio.js
+    ├── input.js
+    ├── theme.js
+    ├── particles.js
+    ├── level.js
+    ├── tileart.js
+    ├── sprites.js
+    ├── entities.js
+    ├── game.js
+    ├── menu.js
+    ├── render.js
+    └── main.js
+Порядок подключения в index.html — фиксированный. Проект без ES-модулей, всё в глобальной области. Файлы ниже по списку видят объекты выше.
+
+2. index.html
+Роль: HTML-оболочка, canvas, виртуальные кнопки, подключение скриптов, Telegram-инициализация.
+
+Head:
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+<title>ТАНКИ 8-БИТ · TELEGRAM EDITION</title>
+
+Шрифт Press Start 2P с cdn.jsdelivr.net.
+
+CSS:
+
+* — touch-action: none, user-select: none, сброс margin/padding, box-sizing: border-box.
+
+html, body — height: var(--tg-viewport-stable-height, 100vh), width: 100%, background: #000, overflow: hidden.
+
+body — радиальный градиент #1b2140 → #0a0c18, flex-раскладка row, space-between, font-family: 'Press Start 2P'.
+
+.controls — 160px ширина, 100% высота, центрирование, z-index: 10.
+
+#wrap — flex column, центрирование, flex: 1.
+
+canvas — border: 4px solid #3a3f5c, border-radius: 6px, тень 0 0 40px rgba(80,120,255,.25), image-rendering: pixelated, max-height: 96%, max-width: 100%, object-fit: contain.
+
+#hint — display: none.
+
+.dpad — 140×140.
+
+.dpad-btn — absolute, полупрозрачный, border: 2px solid rgba(255,255,255,0.4), border-radius: 8px, z-index: 2. .active — ярче.
+
+.dpad-up/down/left/right — позиции и срезанные углы.
+
+.dpad-center — 50×50, z-index: 1.
+
+.action-btns — 140×140.
+
+.act-btn — 50×50, круглые, красные по умолчанию, z-index: 2, text-shadow: 2px 2px 0 #000. .active — scale(0.95).
+
+.btn-1 — огонь, снизу центр.
+
+.btn-2 — экскаватор, оранжевый, справа.
+
+.btn-3 — мины, синий, слева.
+
+.btn-4 — телепорт, зелёный, сверху.
+
+Body:
+
+#left-controls → .dpad#dpad-container с .dpad-center, .dpad-up, .dpad-down, .dpad-left, .dpad-right (каждый с data-key).
+
+#wrap → <canvas id="gameCanvas" width="792" height="644">.
+
+#right-controls → .action-btns с .act-btn.btn-1[data-key="fire"], .btn-2[data-key="dig"], .btn-3[data-key="mine"], .btn-4[data-key="tele"].
+
+Подключение 14 скриптов.
+
+Инлайн-скрипт Telegram:
+
+const tg = window.Telegram?.WebApp;
+
+tg.ready(), tg.expand(), tg.disableVerticalSwipes(), tg.requestFullscreen().
+
+Где менять: размер canvas, расположение/цвета кнопок, порядок скриптов, Telegram-инициализацию.
+
+3. js/config.js
+Роль: Единственный источник чисел и баланса.
+
+Сетка и экран
+TILE = 48
+
+COLS = 13, ROWS = 13
+
+FIELD_X = 10, FIELD_Y = 10
+
+FIELD_W = COLS * TILE, FIELD_H = ROWS * TILE
+
+PANEL_X = FIELD_X + FIELD_W + 8, PANEL_W = 146
+
+CANVAS_W = 792, CANVAS_H = 644
+
+MAX_LEVEL = 50
+
+Направления
+DIRS = [{0,-1},{1,0},{0,1},{-1,0}] — вверх, вправо, вниз, влево.
+
+Типы тайлов T
+EMPTY=0, BRICK=1, STEEL=2, WATER=3, TREE=4, BASE=5, BASE_DEAD=6, SAND=7, CONCRETE=8.
+
+Баланс
+BRICK_HP = 2
+
+CONCRETE_HP = 6
+
+SAND_SLOW = 1/3
+
+MUZZLE_DIST = 26
+
+TANK_INSET = 4
+
+BUILD_TIME = 4
+
+BASE_SHIELD_HITS = 5
+
+BASE_MAX_HP = 20
+
+TURRET_MAX_HP = 30
+
+BONUS_DROP_CHANCE = 0.3125
+
+CLASSIC_THEME_CHANCE = 0.22
+
+TELEPORT_COOLDOWN = 2.5
+
+MATKA_INTERVAL = 5
+
+MAX_MINES = 5
+
+MINE_COOLDOWN = 0.7
+
+LEVEL_END_DELAY = 5
+
+BOSS_HP = 20
+
+Функции
+isBossLevel(l) → l % 5 === 0.
+
+ENEMY_TYPES
+Объект из 10 типов. Поля каждого: speed, hp, score, cool, bulletSpeed, salvo, barrels[], name, body, dark, light, tread.
+
+Тип	speed	hp	score	cool	bulletSpeed	salvo	barrels
+basic	72	1	100	1.5	159	1	[0]
+fast	145	1	200	1.2	180	1	[0]
+power	80	3	300	0.95	180	2	[-5,5]
+armor	56	4	400	1.1	168	2	[-5.5,5.5]
+stealth	105	1	300	1.3	168	1	[0]
+matka	45	5	500	1.4	150	2	[-5,5]
+freezer	70	2	300	2.2	160	1	[0]
+kamikaze	120	1	300	9	0	0	[0]
+breaker	42	20	1000	3.0	150	1	[0]
+boss	55	20	3000	1.0	200	3	[-8,0,8]
+ENEMY_CAP
+Лимиты одновременных пуль: basic:1, fast:1, power:2, armor:2, stealth:1, matka:2, freezer:1, kamikaze:0, breaker:1, boss:3.
+
+Игрок
+PLAYER_SPEEDS = [150,168,184,198,202,206]
+
+PLAYER_BULLET_SPEED = [276,296,316,336,340,348]
+
+PLAYER_SALVO = [1,1,3,3,3,5]
+
+PLAYER_BARRELS = {1:[0], 2:[-5,5], 3:[-8,0,8], 5:[-10,-5,0,5,10]}
+
+PLAYER_COOLDOWN = [0.30,0.10,0.10,0.10,0.10,0.10]
+
+PLAYER_HP = [1,1,1,3,3,4]
+
+MAX_POWER = 5
+
+Палитры игроков
+P1_PALETTES — 8 палитр (жёлтая, оранжевая, красная, циан, синяя, фиолетовая, золотая, белая). Поля: body, dark, light, tread, у 4+ ещё aura.
+
+P2_PALETTES — 8 палитр (зелёная, бирюзовая, лайм, розовая, мятная, голубая, белая, розово-белая).
+
+PLAYER_TAG = ['#f0d030', '#60d060']
+
+EXCAVATOR_PAL — оранжевая палитра.
+
+Бонусы POWERUPS
+8 бонусов: star, grenade, helmet, shovel, baseshield, tank, clock, gun. У каждого name и color.
+
+Координаты
+FORT = [[5,11],[6,11],[7,11],[5,12],[7,12]]
+
+SPAWN_POINTS = [[0,0],[6,0],[12,0]]
+
+PLAYER_SPAWNS = [[4,12],[8,12]]
+
+Стили
+STYLE_NAMES = ['КЛАССИКА','ТЕХНО','РУИНЫ','КРИСТАЛЛ','ДЕРЕВНЯ','ПЛАЗМА']
+
+TILE_STYLE_COUNT = 6
+
+4. js/utils.js
+Роль: Математика и утилиты.
+
+rand(a, b) → a + Math.random() * (b - a)
+
+randInt(a, b) → Math.floor(rand(a, b + 1))
+
+clamp(v, a, b)
+
+rectsOverlap(a, b) — AABB.
+
+pointInRect(px, py, r)
+
+hsl(h, s, l) — строка hsl(...), hue нормализуется.
+
+hueFrom(r) — случайный оттенок из [r[0], r[1]], учитывает переход через 360.
+
+poly(g, cx, cy, r, sides, rot) — рисует залитый многоугольник.
+
+rngFrom(seed) — LCG PRNG, возвращает функцию () => [0,1).
+
+5. js/audio.js
+Роль: Весь звук и музыка.
+
+Sound
+Поля: ctx, master, noiseBuf, muted.
+
+Методы:
+
+init() — создаёт AudioContext (+ webkitAudioContext), master.gain = 0.40, шумовой буфер 1 секунда белого шума.
+
+resume() — ctx.resume() если suspended.
+
+tone(f0, f1, dur, type, vol, delay) — тон с задержкой от currentTime.
+
+toneAt(f, dur, type, vol, when) — тон в момент when.
+
+toneAtSweep(f0, f1, dur, type, vol, when) — тон с экспоненциальным свипом частоты.
+
+noise(dur, freq, vol, delay, type) — шум с lowpass/highpass.
+
+noiseAt(dur, freq, vol, when, type) — то же в момент when.
+
+kickAt(w) — 150→44 Гц sine + шум.
+
+snareAt(w) — шум highpass 1800 + triangle 210.
+
+hatAt(w) — шум highpass 7200.
+
+SFX-методы (все вызывают tone/noise):
+shoot, enemyShoot, bossShoot, turretShoot, brick, crack, steel, shieldHit, pop, sand, digStart, buildDone, buildFail, modeSwitch, menuMove, menuSelect, menuBack, boomSmall, boomBig, hitArmor, stun, powerup, upgrade, commander, armorUp, spawn, respawn, teleport, bossDeath, bossSiren, levelClear, victory, gameOver, life.
+
+Музыкальные данные
+CHORD_TYPES — maj, min, dim, sus, maj7, min7, dom7 (массивы полутонов).
+
+BASS_PAT — A, B, C, D — 8-ступенчатые паттерны.
+
+ARP_PAT — 3 паттерна арпеджио по 8 ступеней.
+
+DRUM_PAT — 3 паттерна: {kick[], snare[], hat[]}.
+
+MELODIES — 10 мелодий. Поля: name, bpm, bass, arp, drum, chords[[root, type]...], lead[32].
+
+MUSIC_STEPS = 32.
+
+Music
+Поля: idx, step, nextTime, stepDur, active, enabled.
+
+Методы:
+
+midi(m) — MIDI → Гц (440 * 2^((m-69)/12)).
+
+start(idx) — выбирает мелодию, сбрасывает step, вычисляет stepDur = 60/bpm/2, nextTime = currentTime + 0.12, active = true.
+
+stop() — active = false.
+
+update() — секвенсор. Пока nextTime < now + 0.32:
+
+вычисляет s = step % 32, bar = s/8, sb = s%8;
+
+играет лид (M.lead[s]), бас (BASS_PAT), арпеджио (ARP_PAT), барабаны (DRUM_PAT);
+
+step++, nextTime += stepDur.
+
+6. js/input.js
+Роль: Ввод со всех источников + привязки.
+
+Константы
+KEY_NAMES — словарь code → читаемое имя.
+
+keyName(code) — конвертер.
+
+FORBIDDEN_KEYS = ['Escape','Enter','NumpadEnter','Tab','F5','F11','F12'].
+
+DEFAULT_BINDS[2]:
+
+Игрок 1: KeyW/KeyS/KeyA/KeyD, Space, KeyX, KeyQ, KeyE.
+
+Игрок 2: ArrowUp/Down/Left/Right, Slash, ControlRight, ShiftRight, Period.
+
+BINDS = [копия DEFAULT_BINDS[0], копия DEFAULT_BINDS[1]].
+
+BIND_ACTIONS — 8 действий: up, down, left, right, fire, tele, dig, mine.
+
+Работа с привязками
+saveBinds() — localStorage['tanks8_binds'].
+
+loadBinds() — читает и валидирует.
+
+resetBinds(i) — сброс одного игрока или всех.
+
+bindName(b) — читаемое имя привязки (K:, V:, P:).
+
+Состояние
+keys = {} — удерживаемые клавиши.
+
+justPressed = {} — только что нажатые.
+
+pads = [] — геймпады.
+
+vInputState — 8 виртуальных кнопок: UP, DOWN, LEFT, RIGHT, FIRE, DIG, MINE, TELE.
+
+vInputJustPressed — то же для edge-детекции.
+
+setVInput(key, val) — устанавливает и фиксирует edge.
+
+DOMContentLoaded
+Находит #dpad-container и .act-btn.
+
+Обработчик handleDpad:
+
+считает центр dpad;
+
+для каждого касания в зоне ±30px определяет угол atan2(dy, dx);
+
+мёртвая зона 15px;
+
+8 направлений → устанавливает vInputState.UP/DOWN/LEFT/RIGHT;
+
+подсвечивает .active.
+
+Слушатели touchstart/move/end/cancel с {passive: false}.
+
+Для .act-btn — touchstart → setVInput(key, true), touchend/cancel → false, плюс .active.
+
+Геймпады
+pollPads() — читает navigator.getGamepads(), складывает {buttons[], axes[], id}.
+
+connectedPads() — количество подключённых.
+
+bindingHeld(b) — проверяет K:, V:, P:B:, P:A:.
+
+scanPadInput() — ищет новое нажатие для переназначения.
+
+padNeutral() — все ли кнопки/оси отпущены.
+
+Input
+st[2] — по объекту mkInputState() на игрока.
+
+mkInputState() → {dir:-1, fire:false, dig, digPrev, digEdge, mine, minePrev, mineEdge, tele, telePrev, teleEdge}.
+
+poll() — для каждого игрока:
+
+читает BINDS[pi];
+
+совмещает клавиатуру/геймпад с виртуальными кнопками (только для игрока 1, если его бинд совпадает с дефолтным);
+
+определяет dir (приоритет: up > right > down > left);
+
+вычисляет edge-флаги для dig/mine/tele.
+
+reset() — сбрасывает dir, fire, edge-флаги.
+
+clearJustPressed() — очищает vInputJustPressed.
+
+7. js/theme.js
+Роль: Палитры уровней.
+
+THEMES — 10 тем. Поля: name, brick[hueRange], steel, water, tree, sand, bg, sat.
+
+CLASSIC_THEME = -1.
+
+makePalette(themeIdx) — генерирует палитру:
+
+hsl для всех элементов: bg, bg2, frame, frameDark, panel, panelDark, brickMortar/Dark/Base/Light/Shade, steel*, water*, tree*, sand*, base*, accent;
+
+массивы brickDebris, steelDebris;
+
+dustCol, sandCol.
+
+makeClassicPalette() — фиксированные цвета NES-стиля.
+
+Глобалы: PAL, TILE_STYLE, BRICK_DEBRIS, STEEL_DEBRIS, DUST_COL, SAND_COL.
+
+8. js/particles.js
+Роль: Все визуальные эффекты.
+
+Массивы
+particles[] — {x,y,vx,vy,life,maxLife,color,size,grav}.
+
+rings[] — {x,y,t,dur,color}.
+
+floaters[] — {x,y,text,color,t}.
+
+debris[] — {x,y,vx,vy,rot,vrot,w,h,color,life,maxLife}.
+
+Добавление
+addParticle(...) — лимит 900.
+
+addDebris(...) — лимит 360.
+
+addRing(x, y, color, delay).
+
+addFloater(x, y, text, color).
+
+Эффекты
+burst(x, y, count, colors[], s0, s1, z0, z1, grav) — разлёт частиц.
+
+explodeBig(x, y) — 42 частицы + 8 обломков + 2 кольца + Sound.boomBig().
+
+explodeSmall(x, y) — 16 частиц + кольцо + Sound.boomSmall().
+
+bulletPop(x, y) — 16 частиц + кольцо + 5 обломков + Sound.pop().
+
+brickShatter(x, y, big) — 20/6 обломков + пыль + кольца.
+
+steelShatter(x, y) — 12 обломков + искры.
+
+shieldBurst(x, y) — 24 частицы + 2 кольца.
+
+teleportBurst(x, y, tag) — 22 частицы + 2 кольца.
+
+sparks(x, y) — 10 частиц.
+
+smoke(x, y) — 1 частица.
+
+sandDust(x, y) — 1 частица.
+
+waterSplash(x, y) — 1 частица.
+
+buildDust(x, y, color) — 1 частица.
+
+muzzleFlash(x, y, dir, big) — вспышка + частица.
+
+Обновление/отрисовка
+updateParticles(dt) — обновляет все 4 массива.
+
+drawDebris(c) — обломки с вращением.
+
+drawParticles(c) — частицы, кольца, floaters.
+
+9. js/level.js
+Роль: Генерация уровней и очереди врагов.
+
+isPathTile(t) — EMPTY || BRICK || TREE || SAND.
+
+pickTileType(num) — вероятности: steel растёт до 0.16, water до 0.11, sand 0.10, tree 0.15, остальное brick.
+
+buildGrid(num):
+
+пустая сетка, база в [12][6], форт из кирпичей;
+
+res — защищённые клетки (спавны, форт, база, [9,12]);
+
+32 + min(num*2, 26) кластеров случайных тайлов (line/block);
+
+доп. заполнение: brick ~18-30%, tree 5%, sand 2.5%;
+
+очистка mustClear клеток;
+
+возврат сетки.
+
+isConnected(g) — BFS от PLAYER_SPAWNS[0], проверяет достижимость [0,0],[6,0],[12,0],[5,12],[8,12].
+
+forcePaths(g) — прорубает горизонтали 0 и 6, вертикали 0, 4, 6, 8, 12, спавны.
+
+generateLevel(num) — 90 попыток buildGrid + isConnected, иначе forcePaths.
+
+buildBrickHp(grid) — 2D-массив HP кирпичей.
+
+buildEnemyQueue(num, starsNeeded):
+
+total = min(12 + num/2, 24);
+
+вероятности типов растут с номером уровня;
+
+flash у каждого 4-го + случайные;
+
+forceStar для starsNeeded позиций.
+
+10. js/tileart.js
+Роль: Рисование тайлов, применение темы.
+
+Хелперы
+bevelRect(g, x, y, w, h, base, light, dark, d) — прямоугольник с фаской.
+
+tShade(g, top, bot) — вертикальный градиент.
+
+tVig(g, a) — виньетка.
+
+tSpeck(g, R, n, color, w, h) — крапины.
+
+tGlow(g, x, y, r, color, alpha) — свечение.
+
+tRivet(g, x, y, r, dark, light) — заклёпка.
+
+tGrain(g, R, n, dark, light) — зерно.
+
+Пейнтеры
+paintBrick(g, p, st, R) — 6 стилей (0..5).
+
+paintCracks(g, p) — трещины поверх кирпича.
+
+paintSteel(g, p, st, R) — 6 стилей.
+
+paintTree(g, p, st, R) — 6 стилей.
+
+paintWater(g, p, st, phase, R) — 6 стилей × 2 фазы.
+
+paintSand(g, p, st, phase, R) — 6 стилей × 2 фазы.
+
+paintConcrete(g, R), paintConcreteCracked(g, R).
+
+paintBase(g, p, st, dead) — орёл + платформа, стиль-dependent.
+
+EAGLE — матрица 12×12 символов W/G/D/..
+
+Спрайты
+tileSprites — brick, brickCracked, steel, tree, water0, water1, sand0, sand1, concrete, concreteCracked, base, baseDead.
+
+makeCanvas(fn) — 48×48 canvas с клипом.
+
+buildTileSprites(style, pal) — генерирует все спрайты, обновляет PAL, TILE_STYLE, BRICK_DEBRIS, STEEL_DEBRIS, DUST_COL, SAND_COL.
+
+Тема
+pickLevelTheme(level):
+
+уровень 1 → CLASSIC_THEME, style 0;
+
+22% → CLASSIC_THEME, случайный style;
+
+иначе случайная тема + случайный style.
+
+applyLevelTheme(themeIdx, styleIdx) — создаёт палитру, обновляет game.pal, game.themeName, game.styleIdx, game.styleName, вызывает buildTileSprites.
+
+11. js/sprites.js
+Роль: Рисование танков, экскаватора, босса, иконок.
+
+drawTreads(g, pal, trackPhase) — гусеницы с анимацией.
+
+drawMuzzle(g, muzzle, tips) — вспышка в стволах.
+
+drawArmorPips(g, hp, color) — полоска брони.
+
+drawRotRings(g, t, r, color, count, speed) — вращающиеся кольца ауры.
+
+drawPlayerTank(g, power, trackPhase, t, muzzle, hp, palSet) — 6 уровней (0..5):
+
+0 — базовый;
+
+1 — скорострельность ×3, спойлер, светящееся ядро;
+
+2 — 3 дула;
+
+3 — броня (щиты по бокам), белые полосы, drawRotRings, drawArmorPips;
+
+4 — вездеход (заклёпки, толстые гусеницы, пробой стали);
+
+5 — пулемёт (5 стволов, гексагон-башня).
+
+drawExcavator(g, trackPhase, t, building, progress, powerPal, hp) — ковш с лифтом, мигающий маяк, при building — прогресс-бар.
+
+drawEnemyTank(g, type, pal, hp, maxHp, trackPhase, t, muzzle) — 10 типов:
+
+basic — простая башня;
+
+fast — спойлер, светящиеся выхлопы;
+
+power — 2 ствола, боковые пушки;
+
+armor — толстая броня, заклёпки, drawArmorPips;
+
+stealth — мигающий контур, розовый глаз;
+
+matka — «глаза» внизу (яйца);
+
+freezer — ледяной шип, пульсирующее ядро;
+
+kamikaze — мигающий красный, бомба;
+
+breaker — тяжёлый, 4 боковых щита, оранжевый глаз.
+
+drawBossTank(g, hp, maxHp, trackPhase, t, muzzle) — большой красный, вращающиеся дуги, 3 ствола.
+
+drawTankSprite(c, cx, cy, dir, bodyFn) — обёртка с тенью и поворотом на dir * π/2.
+
+drawMiniTank(c, x, y, pal) — уменьшенная иконка 0.33×.
+
+drawShieldIcon(c, x, y, s, color, num) — щит с числом.
+
+12. js/entities.js
+Роль: Игровые сущности.
+
+Tank
+Конструктор (x, y, dir, isPlayer, type, playerIndex):
+
+инициализирует все поля: speed, hp, maxHp, cooldown=0.5, shieldTimer=0, frozen=0, spawnTimer (0.8 игрок / 1.0 враг), spawnMax, trackPhase=0, muzzle=0, dead, deathHandled, blocked, blockTime, flash, forceStar, hitFlash, onSand, mode='tank', buildT=0, buildTotal=BUILD_TIME, buildTile=null, aiTimer, shootTimer, tpCool=0, ghost=0, mineCool=0, stealthT, matkaT=MATKA_INTERVAL.
+
+Методы:
+
+rect(), touchRect(), center().
+
+tileAt(gm, x, y) — тип тайла.
+
+canOccupy(nx, ny, gm) — проверка границ, тайлов, танков. Игрок со силой ≥4 — вездеход (вода проходима). ghost > 0 — игнор танков.
+
+alignPerp(gm) — выравнивание по сетке перпендикулярно движению.
+
+tryMove(dt, gm) — движение с учётом песка (×1/3), ассиста выравнивания, вездехода (брызги).
+
+tryShoot(gm) — стрельба с залпами, лимитами (ENEMY_CAP, PLAYER_SALVO), кулдауном, muzzleFlash, звуками.
+
+updatePlayer(dt, gm) — таймеры, стройка, ввод, огонь/копание, смена режима, мины, телепорт.
+
+chooseDirection(gm) — AI: 65% (или 90% камикадзе) идти к игроку/базе, иначе случайно.
+
+updateEnemy(dt, gm) — таймеры, заморозка, матка, камикадзе, AI, стрельба.
+
+hit() — уменьшает HP, hitFlash=0.2, возвращает 0 (щит), 1 (урон), 2 (смерть).
+
+Bullet
+Конструктор (x, y, dir, speed, owner):
+
+поля: x, y, dir, speed, owner, dead=false, w=8, h=8, side, freeze=false, explosive=false, tier, steelPierce (tier ≥4).
+
+Методы:
+
+rect(), hitRect() (48×48 с центром).
+
+update(dt, gm):
+
+движение, частицы следа;
+
+выход за поле → dead, взрыв;
+
+BRICK/CONCRETE → damageBrick, осколки;
+
+STEEL → steelPierce ломает, иначе искры;
+
+BASE → hitBase (враг) или искры;
+
+игрок → врагам урон, враг → игрокам (freeze → frozen=3, shield, hit(), floater).
+
+PowerUp
+Конструктор (x, y, type):
+
+поля: x, y, type, ttl=14, t=0, dead=false.
+
+rect(), update(dt).
+
+13. js/game.js
+Роль: Главный объект состояния.
+
+Поля
+state, mode, level, score, lives[2], playerPower[2], respawnT[2], respawnTries[2], grid, brickHp, demoGrid, players[2], enemies[], bullets[], powerups[], mines[], turrets[], turretShells[], enemyQueue[], spawnTimer, spawnIdx, freezeTimer, baseFortified, baseArmor, baseHp, bossAlertT, bossesKilled, levelIntroT, transitionT, gameOverT, baseAlive, hiScore, killStats, starsNeeded, starsDropped, levelClearPending, clearT, pal, themeName, styleIdx, styleName.
+
+Методы
+allTanks() — игроки + враги без мёртвых.
+
+alivePlayers() — живые игроки без spawnTimer.
+
+randomAlivePlayer(), nearestAlivePlayer().
+
+allPlayersOut().
+
+isFortTile(tx, ty) — форт или база.
+
+startGame(mode) — сброс, startLevel.
+
+startLevel() — тема, генерация, сброс массивов, starsNeeded, enemyQueue, босс (если isBossLevel), спавн игроков, Music.start.
+
+restartLevel(), toMainMenu().
+
+spawnPlayer(pi, first) — танк, shieldTimer=3, HP по силе, эффекты.
+
+teleportPlayer(p) — на PLAYER_SPAWNS[pi], tpCool, ghost=0.5.
+
+placeMine(p) — только с 5 звёзд, лимит MAX_MINES.
+
+kamikazeExplode(k) — радиус TILE*1.2, урон всем.
+
+shellExplosion(x, y, R, hurtPlayers, hurtEnemies) — взрыв, ломает brick/concrete, урон.
+
+matkaSpawn(m) — спавн 1 врага рядом, лимит 18.
+
+isTileFree(tx, ty).
+
+forceClearTile(tx, ty).
+
+maxOnScreen() — min(3 + level/4, 6).
+
+trySpawnEnemy() — из enemyQueue, лимит на экране.
+
+damageBrick(tx, ty) — уменьшает HP, возвращает destroyed.
+
+toggleMode(p) — танк ↔ экскаватор.
+
+frontTile(tank) — клетка перед танком.
+
+startBuild(tank) — проверки, buildT=BUILD_TIME.
+
+buildFx(tank, dt) — пыль, искры.
+
+finishBuild(tank) — CONCRETE, эффекты.
+
+resolveBulletHits() — пуля vs пуля.
+
+onEnemyKilled(e) — очки, killStats, взрыв, drop бонуса, checkWin. Босс — 3 взрыва.
+
+dropPowerUp(forcedType) — 300 попыток, случайный тайл.
+
+applyPowerUp(pu, player) — switch по типу:
+
+star — playerPower++, HP, сообщение;
+
+gun — MAX_POWER, сообщение;
+
+grenade — урон всем врагам (боссу −10%);
+
+helmet — shieldTimer=10;
+
+shovel — форт в STEEL;
+
+baseshield — baseArmor=5;
+
+tank — lives++;
+
+clock — freezeTimer=8.
+
+killPlayer(p) — dead, взрыв, lives--, playerPower=0, respawn или выбывание.
+
+hitBase() — щит → броня, иначе baseHp--, destroyBase при 0.
+
+destroyBase() — BASE_DEAD, 2 взрыва, gameOverT=2.0.
+
+checkWin() — все враги мертвы + очередь пуста → levelClearPending, clearT=5, dropPowerUp('star') если нужно.
+
+saveHiScore() — localStorage['tanks8_hi'].
+
+update(dt) — если UI active — выход; частицы; switch по state:
+
+playing → Music.update(), updatePlaying(dt, false);
+
+levelclear → updatePlaying(dt, true), transitionT--, следующий уровень / victory;
+
+gameover → updatePlaying(dt, true).
+
+updatePlaying(dt, passive) — интро, freezeTimer, bossAlertT, levelClearPending, игроки, respawn, gameOverT, спавн врагов, враги, пули, resolveBulletHits, фильтрация, мины, бонусы.
+
+14. js/menu.js
+Роль: Меню и пауза.
+
+UI
+Поля: active, screen, index, returnTo, bindPlayer, rebinding, rebindAction, rebindWaitRelease, msg, msgT.
+
+Списки
+mainItems() — СТАРТ ИГРЫ, УПРАВЛЕНИЕ.
+
+pauseItems() — вернуться, рестарт, управление, музыка, звук, в меню.
+
+controlsItems() — настройки игрока 1, сбросить всё, назад.
+
+bindsItems(pi) — 8 действий + сброс игрока + назад.
+
+Функции
+menuItems(), menuTitle(), menuLayout() — возвращает {x, y, w, h, rects[], items, rowH, infoY}.
+
+activateItem(item) — switch по action: start1, start2, resume, restart, controls, binds0, binds1, rebind, resetone, resetall, music, sound, mainmenu, back.
+
+menuBack() — назад с учётом rebinding.
+
+handleMenuKey(code) — навигация, Enter/Space, Escape; если rebinding — назначение.
+
+openPauseMenu() — UI.active=true, screen='pause', сброс клавиш.
+
+15. js/render.js
+Роль: Вся отрисовка.
+
+Инициализация
+canvas = document.getElementById('gameCanvas'), ctx, imageSmoothingEnabled = false.
+
+scanlines, vignetteOv, mouseX, mouseY, fatalMsg.
+
+buildOverlays() — создаёт scanlines (1px каждые 3) и виньетку.
+
+Функции отрисовки
+drawFieldGrid(g, time) — фон, шахматная клетка, тайлы (brick/brickCracked, concrete/concreteCracked, steel, water0/1, sand0/1, base, baseDead).
+
+drawBaseShield(time) — щит базы (радиальный градиент + кольцо + иконка).
+
+drawBaseHpBar() — полоска HP базы.
+
+drawForest(g) — дерево поверх.
+
+drawSpawnStar(cx, cy, progress, time, color) — звезда спавна.
+
+drawShieldRing(cx, cy, time) — щит танка.
+
+drawBullet(b, time) — 6 уровней: explosive, freeze, враг, игрок tier 0..5 с градиентом, пульсацией, блинком, вращением.
+
+drawPowerUpIcon(pu, time) — иконка бонуса с миганием при ttl < 3.
+
+drawMines(time) — мины с мигающим красным.
+
+drawGhostBuild(p, time) — превью бетона при стройке.
+
+drawBossBar(time) — полоса HP босса.
+
+drawPanel(time) — панель справа: враги, жизни, сила, мины, флаг уровня, счёт, рекорд, статус, мелодия.
+
+drawTitleArt(time) — титульный экран с танками.
+
+drawUIMenu(time) — меню с подсветкой, подсказками, сообщениями.
+
+drawLevelClear(time) — таблица убитых врагов.
+
+drawGameOver(time) — экран проигрыша.
+
+drawVictory(time) — экран победы.
+
+drawFatal() — экран ошибки.
+
+render(time) — главная функция: фон, поле, база, бонусы, мины, враги (с палитрами по HP, freeze, босс), игроки (с режимом, стройкой, tpCool, shield, frozen, onSand), пули, лес, обломки, частицы, bossAlert, intro, freezeTimer, подсказки, панель, экраны, UI, scanlines, vignette.
+
+16. js/main.js
+Роль: Точка входа, слушатели, главный цикл, Telegram.
+
+Telegram
+const tg = window.Telegram ? window.Telegram.WebApp : null;
+
+tg.ready(), tg.expand(), tg.disableVerticalSwipes().
+
+requestFS() — expand, requestFullscreen (v8.0+), lockOrientation('landscape').
+
+onceFS — один раз по touchstart/click.
+
+Инициализация
+loadBinds(), pollPads(), applyLevelTheme(CLASSIC_THEME, 0), buildOverlays(), game.demoGrid = generateLevel(1).
+
+Чтение tanks8_hi из localStorage.
+
+UI.active = true, UI.screen = 'main', UI.index = 0, UI.returnTo = 'main'.
+
+Слушатели
+gamepadconnected/disconnected → pollPads.
+
+keydown:
+
+preventDefault для стрелок, Space, Escape, Enter, Tab, Slash, Period;
+
+Sound.init(), Sound.resume();
+
+если UI.active → handleMenuKey;
+
+иначе keys[code]=true, justPressed, Escape/P → pause, M → mute, Space/Enter → pressStart.
+
+keyup → keys[e.code] = false.
+
+canvas.mousemove — обновляет mouseX/Y, наводит в меню.
+
+canvas.mousedown — меню или pressStart.
+
+canvas.touchstart — то же для тача.
+
+window.blur — сброс клавиш + пауза.
+
+Функции
+pressStart() — init звука, requestFS, старт/меню.
+
+loop(now) — requestAnimationFrame, dt = min((now-last)/1000, 0.05), Input.poll(), обработка rebind-геймпада, game.update(dt), render(now/1000), catch → drawFatal, очистка justPressed и vInputJustPressed.
+
+17. ПОТОКИ ДАННЫХ
+Инициализация
+index.html грузит скрипты.
+
+main.js вызывает loadBinds, pollPads, applyLevelTheme, buildOverlays, generateLevel(1).
+
+applyLevelTheme → makeClassicPalette → buildTileSprites → все paint*.
+
+UI.active = true, UI.screen = 'main'.
+
+Игровой цикл
+requestAnimationFrame(loop).
+
+Input.poll() — читает клавиатуру/геймпад/виртуальные кнопки.
+
+Если UI.active — меню, иначе game.update(dt).
+
+render(now/1000) — вся отрисовка.
+
+Очистка justPressed.
+
+Ввод → действие
+keys / pads / vInputState обновляются слушателями.
+
+Input.poll() маппит BINDS → Input.st[pi].
+
+Tank.updatePlayer читает Input.st[pi] и вызывает tryMove, tryShoot, gm.startBuild, gm.toggleMode, gm.placeMine, gm.teleportPlayer.
+
+Стрельба
+Tank.tryShoot → new Bullet → gm.bullets.push.
+
+Bullet.update — движение, коллизии.
+
+gm.resolveBulletHits — пуля vs пуля.
+
+gm.bullets = gm.bullets.filter(b => !b.dead).
+
+Смерть врага
+Bullet.update → e.hit() → 2.
+
+gm.onEnemyKilled(e) → очки, killStats, взрыв, drop, checkWin.
+
+gm.enemies = gm.enemies.filter(e => !e.dead).
+
+Уровень пройден
+checkWin → levelClearPending = true, clearT = 5.
+
+updatePlaying → clearT <= 0 → state='levelclear', transitionT=5.8, +500.
+
+update → transitionT <= 0 → level++, state='playing', startLevel.
+
+Рендер
+render(time) → фон, поле, сущности, эффекты, панель, экраны, UI, overlays.
+
+18. ТАБЛИЦА «ЗАДАЧА → ФАЙЛ → ФУНКЦИЯ»
+Задача	Файл	Функция/объект
+HP кирпича	config.js	BRICK_HP
+HP базы	config.js	BASE_MAX_HP
+Скорость игрока	config.js	PLAYER_SPEEDS
+HP игрока	config.js	PLAYER_HP
+Урон/очки врага	config.js	ENEMY_TYPES
+Новый тип врага	config.js, level.js, sprites.js	ENEMY_TYPES, buildEnemyQueue, drawEnemyTank
+Новый бонус	config.js, game.js, render.js	POWERUPS, applyPowerUp, drawPowerUpIcon
+Генерация уровня	level.js	buildGrid, generateLevel
+Очередь врагов	level.js	buildEnemyQueue
+Вид кирпича	tileart.js	paintBrick
+Вид стали	tileart.js	paintSteel
+Вид воды	tileart.js	paintWater
+Вид дерева	tileart.js	paintTree
+Вид песка	tileart.js	paintSand
+Вид базы	tileart.js	paintBase
+Тема уровня	theme.js	THEMES, makePalette, pickLevelTheme
+Вид танка игрока	sprites.js	drawPlayerTank
+Вид врага	sprites.js	drawEnemyTank
+Вид босса	sprites.js	drawBossTank
+Вид экскаватора	sprites.js	drawExcavator
+Логика танка	entities.js	Tank
+Логика пули	entities.js	Bullet
+Логика бонуса	entities.js	PowerUp
+Спавн врагов	game.js	trySpawnEnemy
+Урон базы	game.js	hitBase, destroyBase
+Победа/проигрыш	game.js	checkWin, killPlayer
+Меню	menu.js	activateItem, handleMenuKey
+Привязки	input.js	BINDS, saveBinds, loadBinds
+Виртуальные кнопки	input.js, index.html	vInputState, .act-btn, .dpad
+HUD	render.js	drawPanel
+Экран уровня	render.js	drawLevelClear
+Экран победы	render.js	drawVictory
+Экран проигрыша	render.js	drawGameOver
+Звуки	audio.js	Sound.*
+Музыка	audio.js	Music.*, MELODIES
+Частицы	particles.js	explodeBig, burst, updateParticles
+Главный цикл	main.js	loop
+Telegram	main.js, index.html	tg.*
+19. TELEGRAM-ИНТЕГРАЦИЯ
+window.Telegram.WebApp инжектится клиентом Telegram при открытии Mini App. Файл не нужен.
+
+Используется в:
+
+index.html — инлайн-скрипт: ready, expand, disableVerticalSwipes, requestFullscreen.
+
+main.js — tg, requestFS, onceFS, pressStart.
+
+20. ЛОКАЛЬНОЕ ХРАНИЛИЩЕ
+tanks8_hi — рекорд (game.hiScore).
+
+tanks8_binds — привязки (BINDS).
