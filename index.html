@@ -7,89 +7,89 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/press-start-2p@latest/index.css">
 <style>
 * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
+margin: 0;
+padding: 0;
+box-sizing: border-box;
+touch-action: none;
+user-select: none;
+-webkit-user-select: none;
+-webkit-touch-callout: none;
+-webkit-tap-highlight-color: transparent;
 }
 html, body {
-  height: var(--tg-viewport-stable-height, 100vh);
-  width: 100%;
-  background: #000;
-  overflow: hidden;
-  overscroll-behavior: none;
+height: var(--tg-viewport-stable-height, 100vh);
+width: 100%;
+background: #000;
+overflow: hidden;
+overscroll-behavior: none;
 }
 body {
-  background: radial-gradient(circle at 50% 45%, #1b2140 0%, #0a0c18 100%);
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: stretch;
-  font-family: 'Press Start 2P', monospace;
+background: radial-gradient(circle at 50% 45%, #1b2140 0%, #0a0c18 100%);
+display: flex;
+flex-direction: row;
+justify-content: space-between;
+align-items: stretch;
+font-family: 'Press Start 2P', monospace;
 }
 /* Боковые зоны: каждая занимает ровно половину свободного пространства,
-   содержимое центрируется внутри неё (задачи 3 и 4) */
+содержимое центрируется внутри неё (задачи 3 и 4) */
 .controls {
-  flex: 1 1 0;
-  min-width: 0;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  z-index: 10;
+flex: 1 1 0;
+min-width: 0;
+height: 100%;
+display: flex;
+align-items: center;
+justify-content: center;
+position: relative;
+z-index: 10;
 }
 #wrap {
-  flex: 0 1 auto;
-  min-width: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+flex: 0 1 auto;
+min-width: 0;
+height: 100%;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
 }
 /* Задача 2: canvas растянут по высоте вплотную к верхнему и нижнему краям экрана.
-   Убраны max-height: 96%, border и border-radius — пустых полос больше нет. */
+Убраны max-height: 96%, border и border-radius — пустых полос больше нет. */
 #gameCanvas {
-  display: block;
-  height: 100%;
-  width: auto;
-  max-width: 100%;
-  object-fit: contain;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-  border: none;
-  border-radius: 0;
-  box-shadow: 0 0 40px rgba(80, 120, 255, .25);
-  background: #101018;
+display: block;
+height: 100%;
+width: auto;
+max-width: 100%;
+object-fit: contain;
+image-rendering: pixelated;
+image-rendering: crisp-edges;
+border: none;
+border-radius: 0;
+box-shadow: 0 0 40px rgba(80, 120, 255, .25);
+background: #101018;
 }
 #hint { display: none; }
 /* Крестовина: сплошной крест 168x168 без пустого центра */
 .dpad {
-  position: relative;
-  width: 168px;
-  height: 168px;
+position: relative;
+width: 168px;
+height: 168px;
 }
 .dpad-btn {
-  position: absolute;
-  width: 56px;
-  height: 56px;
-  background: rgba(255, 255, 255, 0.16);
-  border: 2px solid rgba(255, 255, 255, 0.40);
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 12px;
+position: absolute;
+width: 56px;
+height: 56px;
+background: rgba(255, 255, 255, 0.16);
+border: 2px solid rgba(255, 255, 255, 0.40);
+z-index: 2;
+display: flex;
+align-items: center;
+justify-content: center;
+color: rgba(255, 255, 255, 0.65);
+font-size: 12px;
 }
 .dpad-btn.active {
-  background: rgba(255, 255, 255, 0.38);
-  border-color: rgba(255, 255, 255, 0.80);
+background: rgba(255, 255, 255, 0.38);
+border-color: rgba(255, 255, 255, 0.80);
 }
 .dpad-up    { left: 56px;  top: 0;    border-radius: 12px 12px 0 0;   border-bottom: none; }
 .dpad-down  { left: 56px;  top: 112px; border-radius: 0 0 12px 12px;  border-top: none; }
@@ -101,42 +101,42 @@ body {
 .dpad-right::after { content: '\25B6'; }
 /* Заполненная ступица: центр крестовины больше не пустой */
 .dpad-center {
-  position: absolute;
-  left: 56px;
-  top: 56px;
-  width: 56px;
-  height: 56px;
-  background: rgba(255, 255, 255, 0.16);
-  border: 2px solid rgba(255, 255, 255, 0.40);
-  z-index: 1;
+position: absolute;
+left: 56px;
+top: 56px;
+width: 56px;
+height: 56px;
+background: rgba(255, 255, 255, 0.16);
+border: 2px solid rgba(255, 255, 255, 0.40);
+z-index: 1;
 }
 /* Кнопки действий: увеличены до 78x78, контейнер 196x196, центрируются в правой зоне */
 .action-btns {
-  position: relative;
-  width: 196px;
-  height: 196px;
+position: relative;
+width: 196px;
+height: 196px;
 }
 .act-btn {
-  position: absolute;
-  width: 78px;
-  height: 78px;
-  border-radius: 50%;
-  border: 3px solid rgba(255, 255, 255, 0.50);
-  color: #fff;
-  font-family: inherit;
-  font-size: 22px;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2;
-  text-shadow: 2px 2px 0 #000;
-  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.45), inset 0 -6px 0 rgba(0, 0, 0, 0.25);
-  background: #a03030;
+position: absolute;
+width: 78px;
+height: 78px;
+border-radius: 50%;
+border: 3px solid rgba(255, 255, 255, 0.50);
+color: #fff;
+font-family: inherit;
+font-size: 22px;
+line-height: 1;
+display: flex;
+align-items: center;
+justify-content: center;
+z-index: 2;
+text-shadow: 2px 2px 0 #000;
+box-shadow: 0 5px 0 rgba(0, 0, 0, 0.45), inset 0 -6px 0 rgba(0, 0, 0, 0.25);
+background: #a03030;
 }
 .act-btn.active {
-  transform: scale(0.95);
-  filter: brightness(1.35);
+transform: scale(0.95);
+filter: brightness(1.35);
 }
 .btn-1 { left: 59px;  top: 118px; background: #a03030; }
 .btn-2 { left: 118px; top: 59px;  background: #b06020; }
@@ -144,32 +144,41 @@ body {
 .btn-4 { left: 59px;  top: 0;     background: #208030; }
 /* Страховка для узких экранов: элементы управления уменьшаются, оставаясь по центрам зон */
 @media (max-width: 860px) {
-  .dpad { transform: scale(0.8); }
-  .action-btns { transform: scale(0.8); }
+.dpad { transform: scale(0.8); }
+.action-btns { transform: scale(0.8); }
+}
+@media (hover: hover) and (pointer: fine) {
+.controls {
+  display: none !important;
+}
+#wrap {
+  flex: 1 1 auto;
+  width: 100%;
+}
 }
 </style>
 </head>
 <body>
 <div class="controls" id="left-controls">
-  <div class="dpad" id="dpad-container">
-    <div class="dpad-btn dpad-up" data-key="up"></div>
-    <div class="dpad-btn dpad-down" data-key="down"></div>
-    <div class="dpad-btn dpad-left" data-key="left"></div>
-    <div class="dpad-btn dpad-right" data-key="right"></div>
-    <div class="dpad-center"></div>
-  </div>
+<div class="dpad" id="dpad-container">
+<div class="dpad-btn dpad-up" data-key="up"></div>
+<div class="dpad-btn dpad-down" data-key="down"></div>
+<div class="dpad-btn dpad-left" data-key="left"></div>
+<div class="dpad-btn dpad-right" data-key="right"></div>
+<div class="dpad-center"></div>
+</div>
 </div>
 <div id="wrap">
-  <canvas id="gameCanvas" width="792" height="644"></canvas>
-  <div id="hint"></div>
+<canvas id="gameCanvas" width="792" height="644"></canvas>
+<div id="hint"></div>
 </div>
 <div class="controls" id="right-controls">
-  <div class="action-btns">
-    <div class="act-btn btn-1" data-key="fire">1</div>
-    <div class="act-btn btn-2" data-key="dig">2</div>
-    <div class="act-btn btn-3" data-key="mine">3</div>
-    <div class="act-btn btn-4" data-key="tele">4</div>
-  </div>
+<div class="action-btns">
+<div class="act-btn btn-1" data-key="fire">1</div>
+<div class="act-btn btn-2" data-key="dig">2</div>
+<div class="act-btn btn-3" data-key="mine">3</div>
+<div class="act-btn btn-4" data-key="tele">4</div>
+</div>
 </div>
 <script src="js/config.js"></script>
 <script src="js/utils.js"></script>
@@ -191,8 +200,13 @@ if (tg) {
   try {
     tg.ready();
     tg.expand();
-    tg.disableVerticalSwipes();
-    if (tg.requestFullscreen) tg.requestFullscreen();
+    if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+
+    // Запрашиваем requestFullscreen только на смартфонах
+    const isMobile = ['android', 'ios'].includes(tg.platform);
+    if (isMobile && tg.requestFullscreen) {
+      tg.requestFullscreen();
+    }
   } catch (e) {}
 }
 </script>
