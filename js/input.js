@@ -2,7 +2,7 @@
 const KEY_NAMES = {
 Space:'ПРОБЕЛ', Enter:'ENTER', NumpadEnter:'NUM ENTER', Escape:'ESC',
 ArrowUp:'СТРЕЛКА ВВЕРХ', ArrowDown:'СТРЕЛКА ВНИЗ', ArrowLeft:'СТРЕЛКА ВЛЕВО', ArrowRight:'СТРЕЛКА ВПРАВО',
-Period:'.', Comma:',', Slash:'/', Backslash:'\', Semicolon:';', Quote:'"',
+Period:'.', Comma:',', Slash:'/', Backslash:'\\', Semicolon:';', Quote:'"',
 BracketLeft:'[', BracketRight:']', Minus:'-', Equal:'=', Backquote:'`',
 Backspace:'BACKSPACE', Tab:'TAB', Delete:'DEL', Insert:'INS',
 Home:'HOME', End:'END', PageUp:'PGUP', PageDown:'PGDN', CapsLock:'CAPS',
