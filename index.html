@@ -150,16 +150,40 @@ filter: brightness(1.35);
 /* Скрытие сенсорных кнопок на ПК (клавиатура/мышь) */
 @media (hover: hover) and (pointer: fine) {
 .controls {
-  display: none !important;
+display: none !important;
 }
 #wrap {
-  flex: 1 1 auto;
-  width: 100%;
+flex: 1 1 auto;
+width: 100%;
 }
+}
+#rotate-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: #0a0c18;
+  color: #fff;
+  z-index: 99999;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 20px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  line-height: 1.8;
+}
+@media screen and (orientation: portrait) and (hover: none) and (pointer: coarse) {
+  #rotate-overlay {
+    display: flex;
+  }
 }
 </style>
 </head>
 <body>
+<div id="rotate-overlay">
+  <div>ПОВЕРНИТЕ ТЕЛЕФОН<br>ГОРИЗОНТАЛЬНО</div>
+</div>
 <div class="controls" id="left-controls">
 <div class="dpad" id="dpad-container">
 <div class="dpad-btn dpad-up" data-key="up"></div>
